@@ -48,5 +48,5 @@ jobs:
           cd frappe_docker
 
           # Start the Docker containers
-          docker compose -f pwd.yml up -d
+          sudo docker compose -f pwd.yml up -d
         EOF
