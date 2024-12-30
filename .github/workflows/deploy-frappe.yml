@@ -1,0 +1,52 @@
+name: Deploy Frappe Docker
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout the code
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    # Set up SSH
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    # Deploy to Azure VM
+    - name: Deploy Frappe Docker on Azure VM
+      env:
+        AZURE_VM_IP: ${{ secrets.AZURE_VM_IP }}
+        SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+      run: |
+        # SSH into Azure VM and run commands
+        ssh -o StrictHostKeyChecking=no $SSH_USERNAME@$AZURE_VM_IP << 'EOF'
+          # Update system and install Docker if not present
+          # Add Docker's official GPG key:
+          sudo apt-get install ca-certificates curl
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          
+          # Add the repository to Apt sources:
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+          # Clone the Frappe Docker repository
+          git clone https://github.com/Venkat-267/frappe_docker.git
+          cd frappe_docker
+
+          # Start the Docker containers
+          docker compose -f pwd.yml up -d
+        EOF
